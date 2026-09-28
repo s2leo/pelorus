@@ -24,14 +24,15 @@ GNSS drops in tunnels, underpasses, multi-level parking, dense forest, urban can
 ## Architecture
 
 ```
-[Phone Sensors 100Hz] → [Calibration] → [AI Vibration Filter] → [Speed Estimator] → [EKF-lite Fusion 10Hz] → [HMM Map-Matcher] → [UI 60fps]
+[Phone Sensors 100Hz] → [Calibration] → [AI Vibration Filter] → [CNN+GRU when GNSS is poor] → [EKF-lite Fusion 10Hz] → [HMM Map-Matcher] → [UI 60fps]
   accel/gyro/mag          pitch/roll/yaw   EMA α0.12 + pothole    ZUPT + bias adapt   GNss K=cov/(cov+R)    roadNetwork.ts       MapLibre GL
   expo-sensors            gravity+GNSS hdg notch 0.3×           NHC y=z=0           mapPseudo Kmap       synth-42 etc.        react-native-maps (native) / maplibre-gl (web)
                                                                                     200Hz FOG bypass ──────────────────────────────────→ edgeEngine.ts
 ```
 
-- **Training (cloud/desktop):** IO-VNBD + phone-collected IMU → TFLite quantized 4.2 MB (5ms on-device). Interface is `filterSample()` — swap EMA stub with TFLite without changing pipeline.
+- **Training (cloud/desktop):** IO-VNBD + phone-collected IMU → exported ONNX CNN+GRU (`assets/idr_cnn_gru.onnx`, ~73 KB) for offline phone inference. The model interface is isolated in `engine/neuralIdr.ts`.
 - **Inference (phone):** `hooks/useIMUStream.ts` 100Hz ring buffer (512) → 10Hz filtered → `engine/fusion.ts` EKF-lite → `engine/mapMatcher.ts` HMM → `store/navStore.ts` (Zustand) → `MapViewIDR`
+- **Offline neural inference:** `assets/idr_cnn_gru.onnx` is loaded by `engine/neuralIdr.ts` through ONNX Runtime. It is activated only when GNSS is missing, simulated outage is enabled, or reported accuracy is worse than 25 m. Good GNSS remains authoritative.
 - **Edge:** `engine/edgeEngine.ts` standalone `IdrEngine` class (no RN deps) — feed 200Hz FOG via WebSocket `engine/edgeBridge.ts`, same pipeline, `useVibrationFilter: false`.
 
 ---
@@ -141,6 +142,8 @@ npm run export:web # static export to dist/
 # 7. Prebuild (generates android/ios for MapLibre native + dev build)
 npx expo prebuild --clean
 ```
+
+The ONNX runtime requires a native development build (Expo Go cannot load the native ONNX module). Use `npx expo run:android` or an EAS development/preview build after installing dependencies. Inference is local and does not require network access.
 
 **Web map not visible?** Hard refresh `Ctrl+Shift+R`. Check DevTools → Network → `tile.openstreetmap.org` 200. Map container is `height:360` in `app/(tabs)/index.tsx:172` + `View [height:360]` in `MapViewIDR.web.tsx:135` + `map.resize()` on load.
 

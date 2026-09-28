@@ -8,9 +8,22 @@ import { haversine } from "@/engine/roadNetwork";
 
 export function useFusionLoop(enabled: boolean) {
   const { pos: gnssPos } = useGNSS(enabled);
-  const { output } = useIMUStream(enabled, 10);
+  const isOutageSim = useNavStore((state) => state.isOutageSim);
+  // Do not start native ONNX while location permission/fix is still loading.
+  // A missing first fix is an initialization state, not a confirmed outage.
+  const gnssPoor = isOutageSim || (!!gnssPos && (gnssPos.coords.accuracy ?? 999) > 25);
+  const { output } = useIMUStream(enabled, 10, gnssPoor);
   const lastAtRef = useRef(Date.now());
   const fusedRef = useRef({ lat: 18.5204, lon: 73.8567, heading: 42 });
+  // The sensor stream changes many times per second. Keep the latest values in
+  // refs so the navigation timer is not torn down and recreated on every IMU
+  // sample (which can create a React/Zustand update loop).
+  const outputRef = useRef(output);
+  const gnssPosRef = useRef(gnssPos);
+  const outageRef = useRef(isOutageSim);
+  outputRef.current = output;
+  gnssPosRef.current = gnssPos;
+  outageRef.current = isOutageSim;
 
   useEffect(() => {
     if (!enabled) return;
@@ -21,38 +34,44 @@ export function useFusionLoop(enabled: boolean) {
       const store = useNavStore.getState();
 
       // GNSS gating: OUTAGE sim overrides real fix
-      const isOutage = store.isOutageSim;
-      const gnss = !isOutage && gnssPos
+      const currentOutput = outputRef.current;
+      const currentGnssPos = gnssPosRef.current;
+      const isOutage = outageRef.current;
+      const rawGnss = !isOutage && currentGnssPos
         ? {
-            lat: gnssPos.coords.latitude,
-            lon: gnssPos.coords.longitude,
-            accuracy: gnssPos.coords.accuracy ?? 5,
-            speed: gnssPos.coords.speed ?? undefined,
+            lat: currentGnssPos.coords.latitude,
+            lon: currentGnssPos.coords.longitude,
+            accuracy: currentGnssPos.coords.accuracy ?? 5,
+            speed: currentGnssPos.coords.speed ?? undefined,
           }
         : undefined;
+      // AI is deliberately gated: good GNSS always remains authoritative.
+      const gnss = rawGnss && rawGnss.accuracy <= 25 ? rawGnss : undefined;
 
       // --- step 1: EKF predict + GNSS correct (if available)
       const res = fuse({
-        accel: { x: output.forwardAcc, y: 0, z: 9.81 },
-        gyro: { x: 0, y: 0, z: output.gyroYaw },
+        accel: { x: currentOutput.forwardAcc, y: 0, z: 9.81 },
+        gyro: { x: 0, y: 0, z: currentOutput.gyroYaw },
         gnss,
         dt,
       });
 
       let heading = res.heading;
-      if (!gnss) heading = (heading + output.gyroYaw * dt * (180 / Math.PI) * 0.9) % 360;
+      if (!gnss) heading = (heading + currentOutput.gyroYaw * dt * (180 / Math.PI) * 0.9) % 360;
       if (heading < 0) heading += 360;
 
-      const speed = output.speed > 0 ? output.speed : res.speed;
+      const speed = !gnss && currentOutput.neuralSpeed != null
+        ? currentOutput.neuralSpeed
+        : (currentOutput.speed > 0 ? currentOutput.speed : res.speed);
       fusedRef.current = { lat: res.lat, lon: res.lon, heading };
 
       store.setSpeed(speed);
-      store.setGnssStatus(gnss ? "FIX" : "OUTAGE");
+      store.setGnssStatus(gnss ? "FIX" : rawGnss ? "FLOAT" : "OUTAGE");
       store.setFusionMode(res.mode);
 
       // raw point with INS noise (blow up when GNSS denied / pothole)
       const raw = {
-        latitude: res.lat + (output.isPothole ? 0.00002 : 0) + (Math.random() - 0.5) * (gnss ? 0 : 0.000035),
+        latitude: res.lat + (currentOutput.isPothole ? 0.00002 : 0) + (Math.random() - 0.5) * (gnss ? 0 : 0.000035),
         longitude: res.lon + (Math.random() - 0.5) * (gnss ? 0 : 0.000035),
       };
 
@@ -109,7 +128,7 @@ export function useFusionLoop(enabled: boolean) {
     }, 100); // 10Hz
 
     return () => clearInterval(id);
-  }, [enabled, gnssPos, output.forwardAcc, output.gyroYaw, output.isPothole, output.speed]);
+  }, [enabled]);
 
   return { fused: fusedRef.current, imu: output, gnssPos };
 }

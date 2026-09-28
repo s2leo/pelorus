@@ -44,14 +44,9 @@
           "locationWhenInUsePermission": "Allow Peloras to use location for navigation."
         }
       ],
-      [
-        "react-native-maps",
-        {
-          "iosGoogleMapsApiKey": "",
-          "androidGoogleMapsApiKey": ""
-        }
-      ],
-      "expo-sharing"
+      "@maplibre/maplibre-react-native",
+      "expo-sharing",
+      "expo-asset"
     ]
   }
 }

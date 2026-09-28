@@ -26,8 +26,9 @@ export default function CalibrationScreen() {
   useEffect(() => {
     pushGravity(engineRef.current, output.raw);
     const { pitch: lp, roll: lr } = liveTilt(engineRef.current);
-    setLivePitch(lp);
-    setLiveRoll(lr);
+    // Avoid scheduling a React render when the sensor value is unchanged.
+    setLivePitch((prev) => Math.abs(prev - lp) < 0.001 ? prev : lp);
+    setLiveRoll((prev) => Math.abs(prev - lr) < 0.001 ? prev : lr);
     // mount shift detect via gyro yaw
     if (detectMountShift(engineRef.current, output.gyroYaw)) {
       setMountShift(true);
@@ -36,7 +37,10 @@ export default function CalibrationScreen() {
 
   useEffect(() => {
     if (pos?.coords.heading != null) setLiveGnssH(pos.coords.heading);
-    else setLiveGnssH((h) => (h + output.gyroYaw * 57.3 * 0.1) % 360);
+    else setLiveGnssH((h) => {
+      const next = (h + output.gyroYaw * 57.3 * 0.1) % 360;
+      return Math.abs(next - h) < 0.001 ? h : next;
+    });
   }, [pos, output.gyroYaw]);
 
   const speed = useNavStore((s) => s.speed) || output.speed;

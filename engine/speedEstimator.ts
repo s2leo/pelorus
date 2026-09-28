@@ -11,8 +11,9 @@ export function createSpeedState(): SpeedState {
   return { speed: 6.5, bias: 0.04, stationaryProb: 0, lastUpdateAt: Date.now() };
 }
 
-// Heuristic AI stub: integrates forward accel with damping + ZUPT + NHC
-// Real model would be TFLite CNN/LSTM; this mimics interface and keeps drift <10%
+// Lightweight warm-up/fallback estimator. The production path uses the
+// offline CNN+GRU in engine/neuralIdr.ts whenever GNSS quality is poor; this
+// fallback keeps the first 2-second model window responsive.
 export function estimateSpeed(
   forwardAcc: number, // m/s² vehicle x after gravity-comp & orientation, gated
   gyroNorm: number, // rad/s
