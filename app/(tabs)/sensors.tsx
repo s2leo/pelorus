@@ -7,10 +7,12 @@ import { IMUStripChart } from "@/components/IMUStripChart";
 import { useIMUStream } from "@/hooks/useIMUStream";
 import { useNavStore } from "@/store/navStore";
 import { useImuStore } from "@/store/imuStore";
+import { usePathname } from "expo-router";
 
 export default function SensorsScreen() {
+  const isFocused = usePathname().endsWith("/sensors");
   const [filterOn, setFilterOn] = useState(true);
-  const { output, running } = useIMUStream(true, 10);
+  const { output, running } = useIMUStream(isFocused, 10);
   const { diagnostics, rawHz, filteredHz } = useImuStore();
   const { gnssStatus, fusionMode } = useNavStore();
 
@@ -33,7 +35,7 @@ export default function SensorsScreen() {
       setPotholeToast(true);
       setTimeout(() => setPotholeToast(false), 900);
     }
-  }, [output]);
+  }, [output.forwardAcc, output.gyroYaw, output.speed, output.raw.z, output.isPothole]);
 
   const forwardAvg = output.forwardAcc.toFixed(2);
   const gyroAvg = (output.gyroYaw * 57.3).toFixed(1);

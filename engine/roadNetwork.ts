@@ -7,10 +7,9 @@ export interface RoadSegment {
   bearing: number; // deg main bearing
 }
 
-// Mock OSM road graph around Pune FC/JM Road area ~2km
-// Center 18.5204,73.8567
-// In production load PMTiles/MBTiles and parse via overpass or offline valhalla graph
-export const roadNetwork: RoadSegment[] = [
+// Synthetic graph retained only for the offline benchmark/playback fixtures.
+// It must never be used by the live phone navigation path.
+export const syntheticRoadNetwork: RoadSegment[] = [
   {
     id: "fc-road",
     name: "FC Road",
@@ -77,6 +76,11 @@ export const roadNetwork: RoadSegment[] = [
     ],
   },
 ];
+
+// Live navigation has no hard-coded FC/JM/Apte route. A real road graph can be
+// injected later from OSM/MBTiles; until then map matching safely returns the
+// raw GNSS/INS position instead of snapping to a fictional Pune route.
+export const roadNetwork: RoadSegment[] = [];
 
 // utility: haversine meters
 export function haversine(a: LatLng, b: LatLng): number {

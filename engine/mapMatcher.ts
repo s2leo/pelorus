@@ -1,5 +1,5 @@
 import { LatLng } from "@/store/navStore";
-import { roadNetwork, haversine, bearing, projectOnSegment } from "./roadNetwork";
+import { RoadSegment, roadNetwork, haversine, bearing, projectOnSegment } from "./roadNetwork";
 
 export interface MatchCandidate {
   segmentId: string;
@@ -36,14 +36,15 @@ export function matchPosition(
   raw: LatLng,
   heading: number,
   _speed: number,
-  gnssAvailable: boolean
+  gnssAvailable: boolean,
+  network: RoadSegment[] = roadNetwork,
 ): MatchResult {
   // GNSS available: moderate snap, GNSS denied: allow larger to keep road lock
   const maxSnap = gnssAvailable ? 35 : MAX_SNAP_M;
 
   let best: MatchCandidate | null = null;
 
-  for (const seg of roadNetwork) {
+  for (const seg of network) {
     for (let i = 0; i < seg.poly.length - 1; i++) {
       const a = seg.poly[i];
       const b = seg.poly[i + 1];

@@ -7,7 +7,12 @@ import { roadNetwork } from "@/engine/roadNetwork";
 
 interface Props { position: LatLng; heading: number; rawTrail: LatLng[]; snappedTrail: LatLng[]; gnssStatus: string; }
 const emptyLine = (p: LatLng) => [p, p];
-function lineFeature(coords: LatLng[]) { return { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: coords.map((c) => [c.longitude, c.latitude]) } }; }
+function lineFeature(coords: LatLng[]) {
+  // MapLibre rejects a LineString with fewer than two coordinates. During
+  // startup a trail can contain zero or one live GNSS/IMU point.
+  const safe = coords.length >= 2 ? coords : coords.length === 1 ? [coords[0], coords[0]] : [];
+  return { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: safe.map((c) => [c.longitude, c.latitude]) } };
+}
 function collection(features: ReturnType<typeof lineFeature>[]) { return { type: "FeatureCollection" as const, features }; }
 
 // OSM raster tiles rendered by MapLibre; no Google Maps API key is needed.

@@ -9,12 +9,14 @@ import * as Haptics from "expo-haptics";
 import { createCalibEngine, pushGravity, liveTilt, collectSample, computeResult, resetCalib, detectMountShift } from "@/engine/calibrationEngine";
 import { useIMUStream } from "@/hooks/useIMUStream";
 import { useGNSS } from "@/hooks/useGNSS";
+import { usePathname } from "expo-router";
 
 export default function CalibrationScreen() {
+  const isFocused = usePathname().endsWith("/calibration");
   const { calibrationDone, pitch, roll, yaw, calibConfidence, lastCalibAt, mountShiftDetected, setCalibration, setMountShift } = useNavStore();
   const engineRef = useRef(createCalibEngine());
-  const { output } = useIMUStream(true, 10);
-  const { pos } = useGNSS(true);
+  const { output } = useIMUStream(isFocused, 10);
+  const { pos } = useGNSS(isFocused);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [livePitch, setLivePitch] = useState(pitch);

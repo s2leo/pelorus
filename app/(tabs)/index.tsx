@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, usePathname } from "expo-router";
 import { useNavStore } from "@/store/navStore";
 import { useImuStore } from "@/store/imuStore";
 import { MapViewIDR } from "@/components/MapViewIDR";
@@ -12,6 +12,8 @@ import { theme } from "@/utils/theme";
 import { useFusionLoop } from "@/hooks/useFusionLoop";
 
 export default function NavigateScreen() {
+  const pathname = usePathname();
+  const isFocused = pathname === "/" || pathname.endsWith("/index");
   const {
     position,
     heading,
@@ -31,7 +33,7 @@ export default function NavigateScreen() {
   const { diagnostics, rawHz } = useImuStore();
 
   // drive whole pipeline: 100Hz IMU → 10Hz filter → 10Hz GNSS+INS fuse → navStore
-  const { imu } = useFusionLoop(true);
+  const { imu } = useFusionLoop(isFocused);
 
   const speedKph = (speed * 3.6).toFixed(0);
   const forwardAcc = imu.forwardAcc.toFixed(2);
@@ -124,10 +126,10 @@ export default function NavigateScreen() {
             <Ionicons name="arrow-forward" size={20} color="#0B1220" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.turnLabel}>CONTINUE 1.2 km</Text>
-            <Text style={styles.turnRoad}>FC Road → JM Road</Text>
+            <Text style={styles.turnLabel}>LIVE NAVIGATION</Text>
+            <Text style={styles.turnRoad}>Live OSM/GNSS route</Text>
           </View>
-          <Text style={styles.turnDist}>2 min</Text>
+          <Text style={styles.turnDist}>GNSS/IDR</Text>
         </View>
 
         <Link href="/calibration" asChild>

@@ -30,12 +30,13 @@ const STYLE_URL: any = {
 };
 
 function toGeoJSON(coords: LatLng[]): any {
+  const safe = coords.length >= 2 ? coords : coords.length === 1 ? [coords[0], coords[0]] : [];
   return {
     type: "Feature",
     properties: {},
     geometry: {
       type: "LineString",
-      coordinates: coords.map((c) => [c.longitude, c.latitude]),
+      coordinates: safe.map((c) => [c.longitude, c.latitude]),
     },
   };
 }

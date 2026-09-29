@@ -4,7 +4,7 @@ import { rotateToVehicle, gravityCompensate } from "./orientation";
 import { createSpeedState, estimateSpeed } from "./speedEstimator";
 import { fuse, resetFusion } from "./fusion";
 import { matchPosition, resetMatcher } from "./mapMatcher";
-import { haversine } from "./roadNetwork";
+import { haversine, syntheticRoadNetwork } from "./roadNetwork";
 
 export interface PlaybackOpts {
   pitch: number;
@@ -80,7 +80,9 @@ export function runPlayback(rows: IoRow[], opts: PlaybackOpts) {
 
     // raw point with noise model (when fused without GNSS, add tiny jitter)
     const rawPt = { latitude: fused.lat, longitude: fused.lon };
-    const matched = matchPosition(rawPt, heading, speedState.speed, hasGnss);
+    // Playback uses the deterministic synthetic graph only for benchmark
+    // reproducibility; live navigation uses the real OSM/GNSS path.
+    const matched = matchPosition(rawPt, heading, speedState.speed, hasGnss, syntheticRoadNetwork);
     const snapped = matched.snapped;
 
     // if EKF already handles map pseudo, we could feed matched back into next fuse as mapPseudo,

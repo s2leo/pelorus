@@ -80,19 +80,13 @@ export const useNavStore = create<NavState>((set, get) => ({
   calibConfidence: 0,
   lastCalibAt: null,
   mountShiftDetected: false,
-  rawTrail: [
-    { latitude: 18.5204, longitude: 73.8567 },
-    { latitude: 18.521, longitude: 73.8572 },
-    { latitude: 18.522, longitude: 73.8579 },
-  ],
-  snappedTrail: [
-    { latitude: 18.5204, longitude: 73.8567 },
-    { latitude: 18.5209, longitude: 73.8571 },
-    { latitude: 18.5218, longitude: 73.8577 },
-  ],
-  snapRoad: "FC Road",
-  snapDist: 2.1,
-  isSnapped: true,
+  // Live app starts with empty trails; positions are populated from GNSS/IMU.
+  // No synthetic FC Road/JM Road route is shown by default.
+  rawTrail: [],
+  snappedTrail: [],
+  snapRoad: null,
+  snapDist: 0,
+  isSnapped: false,
 
   setPosition: (p) => set({ position: p }),
   setHeading: (h) => set({ heading: h }),

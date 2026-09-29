@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavStore } from "@/store/navStore";
-import { fuse } from "@/engine/fusion";
+import { fuse, resetFusion } from "@/engine/fusion";
 import { useGNSS } from "./useGNSS";
 import { useIMUStream } from "./useIMUStream";
 import { matchPosition } from "@/engine/mapMatcher";
@@ -21,9 +21,42 @@ export function useFusionLoop(enabled: boolean) {
   const outputRef = useRef(output);
   const gnssPosRef = useRef(gnssPos);
   const outageRef = useRef(isOutageSim);
+  const initializedGnssRef = useRef(false);
   outputRef.current = output;
   gnssPosRef.current = gnssPos;
   outageRef.current = isOutageSim;
+
+  // The fusion engine has a deterministic fallback only for startup/tests.
+  // Replace it with the first real device fix as soon as permission and a
+  // location are available, so the live map never begins at Pune coordinates.
+  useEffect(() => {
+    if (!enabled) {
+      initializedGnssRef.current = false;
+      return;
+    }
+    if (!gnssPos || initializedGnssRef.current) return;
+    const { latitude, longitude, accuracy, heading: gnssHeading, speed: gnssSpeed } = gnssPos.coords;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    const initialHeading = Number.isFinite(gnssHeading) && (gnssHeading ?? -1) >= 0
+      ? (gnssHeading as number)
+      : useNavStore.getState().heading;
+    const initialSpeed = Number.isFinite(gnssSpeed) && (gnssSpeed ?? -1) >= 0 ? (gnssSpeed as number) : 0;
+    resetFusion(latitude, longitude, initialHeading, initialSpeed);
+    useNavStore.setState({
+      position: { latitude, longitude },
+      heading: initialHeading,
+      speed: initialSpeed,
+      accuracy: accuracy ?? 999,
+      gnssStatus: (accuracy ?? 999) <= 25 ? "FIX" : "FLOAT",
+      fusionMode: "GNSS",
+      rawTrail: [],
+      snappedTrail: [],
+      snapRoad: null,
+      snapDist: 0,
+      isSnapped: false,
+    });
+    initializedGnssRef.current = true;
+  }, [enabled, gnssPos]);
 
   useEffect(() => {
     if (!enabled) return;

@@ -8,7 +8,10 @@ export interface SpeedState {
 }
 
 export function createSpeedState(): SpeedState {
-  return { speed: 6.5, bias: 0.04, stationaryProb: 0, lastUpdateAt: Date.now() };
+  // A phone starts stationary unless the caller provides a trusted speed
+  // (for example, a GNSS fix). Starting at 6.5 m/s makes the ZUPT gate
+  // impossible to enter because it requires speed < 0.8 m/s.
+  return { speed: 0, bias: 0.04, stationaryProb: 0, lastUpdateAt: Date.now() };
 }
 
 // Lightweight warm-up/fallback estimator. The production path uses the
